@@ -1,9 +1,25 @@
+import json
+
 import requests
 from bs4 import BeautifulSoup
-import csv
+
+def get_passives_cons(soup, len_talents):
+    map = {}
+    passive_tables = soup.findAll('table', class_='item_main_table')[1 + len_talents:1 + len_talents + 2]
+    map['passives'] = {}
+    map['cons'] = {}
+    index = 0
+    for passive_table in passive_tables:
+        rows = passive_table.find_all('tr')
+        dic = map['passives'] if index == 0 else map['cons']
+        for i in range(0, len(rows), 2):
+            name = rows[i].find_all('td')[1].text
+            desc = rows[i + 1].find('div').text.replace("#", "")
+            dic[name] = desc
+        index += 1
+    return map
 
 def get_base_stats(soup):
-
     stat_map = {}
     stat_tables = soup.findAll('table', class_='add_stat_table')
     stat_table = stat_tables[1]
@@ -37,13 +53,13 @@ def get_talents(soup):
         if index >= len(talents):
             break
         if index == 0:
-            talent_map['Normal Attack'] = {'name': talents[index], 'desc': rows[1].text}
+            talent_map['Normal Attack'] = {'name': talents[index], 'desc': rows[1].text.replace("#", "")}
         elif index == 1:
-            talent_map['Elemental Skill'] = {'name': talents[index], 'desc': rows[1].text}
-        elif index == 2 and len(talents) == 3:
-            talent_map['Alternate Sprint'] = {'name': talents[index], 'desc': rows[1].text}
+            talent_map['Elemental Skill'] = {'name': talents[index], 'desc': rows[1].text.replace("#", "")}
+        elif index == 2 and len(talents) == 4:
+            talent_map['Alternate Sprint'] = {'name': talents[index], 'desc': rows[1].text.replace("#", "")}
         else:
-            talent_map['Elemental Burst'] = {'name': talents[index], 'desc': rows[1].text}
+            talent_map['Elemental Burst'] = {'name': talents[index], 'desc': rows[1].text.replace("#", "")}
 
     # Gets Talent Value INFO first, THEN get the values
     value_titles = []
@@ -55,17 +71,17 @@ def get_talents(soup):
 
         for row in rows[1:]:
             value_map[row.find('td').text] = [col.text for col in row.find_all('td')[1:]]
-        print(value_map)
+        # print(value_map)
         if index == 0:
             talent_map['Normal Attack']['values'] = value_map
         elif index == 1:
             talent_map['Elemental Skill']['values'] = value_map
-        elif index == 2 and len(talents) == 3:
+        elif index == 2 and len(talents) == 4:
             talent_map['Alternate Sprint']['values'] = value_map
         else:
             talent_map['Elemental Burst']['values'] = value_map
 
-    print(talent_map)
+    # print(talent_map)
     return talent_map
 
 def get_character_desc(soup):
@@ -99,49 +115,58 @@ def get_character(id: str):
     # soup = BeautifulSoup(page.content, 'html.parser')
     soup = BeautifulSoup(page.content, 'html5lib')
 
-    character = {'name': soup.find('div', class_='custom_title')}
+    character = {'id': id, 'name': soup.find('div', class_='custom_title').text}
 
     desc_soup = soup.find('table', {'class': "item_main_table"})
 
     desc = get_character_desc(desc_soup)
     character['desc'] = desc
 
-    character['Talents'] = get_talents(soup)
+    character['talents'] = get_talents(soup)
 
     character['stats'] = get_base_stats(soup)
 
-    print(character)
+    character.update(get_passives_cons(soup, len(character['talents'])))
+
+    # print(json.dumps(character, indent=4))
     return character
 
-def write_to_csv(data):
-    with open('scrape.csv', mode='w', newline='') as scraped_furniture:
-        scrape_writer = csv.writer(scraped_furniture, delimiter=',', quotechar='"', quoting=csv.QUOTE_MINIMAL)
-        scrape_writer.writerow(
-            [data[0][0][0], data[0][1][0], data[0][2][0], data[0][3][0], data[0][4][0], data[0][5][0]])
+def char_data_to_md(character):
+    output = "---\n" + "description: >-\n" + f"  {character['desc']['In-game Description']}" + "\n---\n"
+    output += f"\n# {character['name']}\n"
+    output += f"\n## ![](../../.gitbook/assets/element_{character['desc']['Element'].lower()}.png) {character['name']}\n"
+    output += f"\n![](../../.gitbook/assets/character_{character['id']}_wish.png)\n"
+    # print(output)
+    return output
 
-        for line in data:
-            # print(line)
-            scrape_writer.writerow([line[0][-1], line[1][-1], line[2][-1], line[3][-1], line[4][-1], line[5][-1]])
+def base_stats_to_md(base_stats):
+    asc_stat = list(base_stats)[4]
+    output = '## **Base Stats**' + '\n\n'
+    output += f"| Lv | Base HP | Base ATK | Base DEF | {asc_stat} |" + "\n| :--- | :--- | :--- | :--- | :--- |\n"
+    for i in range(7, len(base_stats['Lv'])):
+        output += f"| {base_stats['Lv'][i]} | {base_stats['Base HP'][i]} | {base_stats['Base ATK'][i]} | {base_stats['Base DEF'][i]} | {base_stats[asc_stat][i]} |\n"
+    # print(output)
+    return output
 
-def talents_to_md(talents):
+def talent_desc_to_md(talents):
     output = '## **Attacks**' + '\n\n' + '{% tabs %}\n'
     for index, talent in enumerate(talents):
         if index == 0:
             output += "{% tab title=\"" + talents[talent]['name'][len("Normal Attack: "):] + "\" %}\n"
-            output += "**Normal Attacks**\n" + talents[talent]['desc'][
-                                               len('Normal Attack '):talents[talent]['desc'].find(
-                                                   " Charged Attack")] + "\n\n"
-            output += '| String | Talent 6% | Frames | Motion Value |" + "\n| :--- | :--- | :--- | :--- |\n'
+            output += "**Normal Attacks**  \n" + talents[talent]['desc'][
+                                                 len('Normal Attack '):talents[talent]['desc'].find(
+                                                     " Charged Attack")] + "\n\n"
+            output += '| String | Talent 6% | Frames | Motion Value |\n| :--- | :--- | :--- | :--- |\n'
             for hit in talents[talent]['values']:
                 if hit.find("Charged Attack") != -1:
                     break
                 output += "| " + hit + " | " + talents[talent]['values'][hit][5] + " | -- | -- |\n"
 
-            output += "\n**Charged Attacks**\n" + talents[talent]['desc'][
-                                                talents[talent]['desc'].find(" Charged Attack") + len(
-                                                    ' Charged Attack '):
-                                                talents[talent]['desc'].find(" Plunging Attack")] + "\n\n"
-            output += '| String | Talent 6% | Frames | Motion Value |" + "\n| :--- | :--- | :--- | :--- |\n'
+            output += "\n**Charged Attacks**  \n" + talents[talent]['desc'][
+                                                    talents[talent]['desc'].find(" Charged Attack") + len(
+                                                        ' Charged Attack '):
+                                                    talents[talent]['desc'].find(" Plunging Attack")] + "\n\n"
+            output += '| String | Talent 6% | Frames | Motion Value |\n| :--- | :--- | :--- | :--- |\n'
 
             for hit in talents[talent]['values']:
                 if hit.find("Charged Attack") == -1:
@@ -150,9 +175,9 @@ def talents_to_md(talents):
                     break
                 output += "| " + hit + " | " + talents[talent]['values'][hit][5] + " | -- | -- |\n"
 
-            output += "\n**Plunge Attacks**\n" + talents[talent]['desc'][
-                                                talents[talent]['desc'].find(" Plunging Attack") + len(
-                                                    ' Plunging Attack '):] + "\n\n"
+            output += "\n**Plunge Attacks**  \n" + talents[talent]['desc'][
+                                                   talents[talent]['desc'].find(" Plunging Attack") + len(
+                                                       ' Plunging Attack '):] + "\n\n"
 
             output += '| String | Talent 6% |" + "\n| :--- | :--- |\n'
             for hit in talents[talent]['values']:
@@ -163,7 +188,8 @@ def talents_to_md(talents):
         elif index == 1:
             output += "{% tab title=\"" + talents[talent]['name'] + "\" %}\n"
             output += f'{talents[talent]["desc"]}\n\n'
-            output += '| Type | Talent 6% | Cooldown | U | Particles | Frames | Motion Value |' + '\n| :--- | :--- | :--- | :--- | :--- | :--- | :--- |\n'
+            output += '| Type | Talent 6% | Cooldown | U | Particles | Frames | Motion Value |\n' + \
+                      '| :--- | :--- | :--- | :--- | :--- | :--- | :--- |\n'
             for hit in talents[talent]['values']:
                 output += "| " + hit + " | " + talents[talent]['values'][hit][5] + " | -- | -- | -- | --| -- |\n"
             output += "{% endtab %}\n\n"
@@ -175,7 +201,11 @@ def talents_to_md(talents):
                 output += "| " + hit + " | " + talents[talent]['values'][hit][5] + " |\n"
             output += "{% endtab %}\n"
     output += "{% endtabs %}\n\n"
-    output += "## Full Talent Values\n\n{% tabs %}"
+    # print(output)
+    return output
+
+def talents_to_md(talents):
+    output = "## Full Talent Values\n\n{% tabs %}"
 
     for index, talent in enumerate(talents):
         if index == 0:
@@ -201,6 +231,7 @@ def talents_to_md(talents):
                 for val in talents[talent]['values'][hit][5:11]:
                     output += " " + val[:-1] + " |"
                 output += "\n"
+            output += f"\n**Stamina Cost:** {talents[talent]['values']['Charged Attack Stamina Cost'][0]}\n"
 
             output += "\n### Plunge \n\n"
             output += "|  | Lv6 | Lv7 | Lv8 | Lv9 | Lv10 | Lv11 |" + "\n| :--- | :--- | :--- | :--- | :--- | :--- | :--- |\n"
@@ -231,13 +262,59 @@ def talents_to_md(talents):
                 output += "\n"
             output += "{% endtab %}\n"
     output += "{% endtabs %}"
-    print(output)
+    # print(output)
     return output
 
+def passives_to_md(passives):
+    output = '## **Ascension Passives**' + '\n\n'
+    output += '{% tabs %}'
+    keys = list(passives)
+    for i in range(0, 3):
+        if i == 0:
+            output += "\n{% tab title=\"Passive\" %}\n"
+        if i == 1:
+            output += "\n{% tab title=\"Ascension 1\" %}\n"
+        if i == 2:
+            output += "\n{% tab title=\"Ascension 4\" %}\n"
+        output += f"### {keys[i]}\n\n{passives[keys[i]]}\n"
+        output += "{% endtab %}\n"
+    output += "{% endtabs %}\n"
+    # print(output)
+    return output
+
+def cons_to_md(cons):
+    output = '## **Constellations**' + '\n\n'
+    output += '{% tabs %}'
+    keys = list(cons)
+    for i in range(0, 6):
+        output += "\n{% tab title=\"C" + str(i + 1) + "\" %}\n"
+        output += f"### {keys[i]}\n\n{cons[keys[i]]}\n"
+        output += "{% endtab %}\n"
+    output += "{% endtabs %}\n"
+    output.replace('\u2022', "*")
+    # print(output)
+    return output
+
+def char_to_md(character):
+    f = open(f"{character['id']}.md", "w", encoding='utf-8')
+    f.write(char_data_to_md(character) + "\n")
+    f.write(base_stats_to_md(character['stats']) + "\n")
+    f.write(talent_desc_to_md(character['talents']) + "\n")
+    f.write(passives_to_md(character['passives']) + "\n")
+    f.write(cons_to_md(character["cons"]) + "\n")
+    f.write(talents_to_md(character['talents']))
+    f.close()
+
 def main():
-    data = get_character('diluc')
-    # talents_to_md(data['Talents'])
-    # write_to_csv(data)
+    character = input("Enter the character's name: ")
+    data = get_character(character)
+    char_to_md(data)
+    print(json.dumps(data, indent=4))
+    print("File saved to " + data['id'] + ".md\n")
+    # base_stats_to_md(data['stats'])
+    # talents_to_md(data['talents'])
+    # passives_to_md(data['passives'])
+    # cons_to_md(data["cons"])
 
 if __name__ == "__main__":
     main()
