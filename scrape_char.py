@@ -158,9 +158,9 @@ def talent_desc_to_md(talents):
                                                      " Charged Attack")] + "\n\n"
             output += '| String | Talent 6% | Frames | Motion Value |\n| :--- | :--- | :--- | :--- |\n'
             for hit in talents[talent]['values']:
-                if hit.find("Charged Attack") != -1:
+                if hit.find("Charged Attack") != -1 or hit.find("Aimed Shot") != -1:
                     break
-                output += "| " + hit + " | " + talents[talent]['values'][hit][5] + " | -- | -- |\n"
+                output += "| " + hit + " | " + talents[talent]['values'][hit][5].strip() + " | -- | -- |\n"
 
             output += "\n**Charged Attacks**  \n" + talents[talent]['desc'][
                                                     talents[talent]['desc'].find(" Charged Attack") + len(
@@ -169,21 +169,27 @@ def talent_desc_to_md(talents):
             output += '| String | Talent 6% | Frames | Motion Value |\n| :--- | :--- | :--- | :--- |\n'
 
             for hit in talents[talent]['values']:
-                if hit.find("Charged Attack") == -1:
+                if hit.find("Charged Attack") == -1 and hit.find("Aimed Shot") == -1:
                     continue
                 if hit.find("Stamina Cost") != -1:
+                    output += f"\n* Stamina Cost: {talents[talent]['values']['Charged Attack Stamina Cost'][0].replace(' /s','')}\n"
                     break
-                output += "| " + hit + " | " + talents[talent]['values'][hit][5] + " | -- | -- |\n"
+                output += "| " + hit + " | " + talents[talent]['values'][hit][5].strip() + " | -- | -- |\n"
 
             output += "\n**Plunge Attacks**  \n" + talents[talent]['desc'][
                                                    talents[talent]['desc'].find(" Plunging Attack") + len(
                                                        ' Plunging Attack '):] + "\n\n"
 
-            output += '| String | Talent 6% |" + "\n| :--- | :--- |\n'
+            output += "| String | Talent 6% |" + "\n| :--- | :--- |\n"
             for hit in talents[talent]['values']:
                 if hit.find("Plunge") == -1:
                     continue
-                output += "| " + hit + " | " + talents[talent]['values'][hit][5] + " |\n"
+                if hit.find("Low/High") > -1:
+                    low = talents[talent]['values'][hit][5].strip().split()[0]
+                    high = talents[talent]['values'][hit][5].strip().split()[-1]
+                    output += f"| Low Plunge DMG | {low} |\n| High Plunge DMG | {high} |\n"
+                    continue
+                output += "| " + hit + " | " + talents[talent]['values'][hit][5].strip() + " |\n"
             output += "{% endtab %}\n\n"
         elif index == 1:
             output += "{% tab title=\"" + talents[talent]['name'] + "\" %}\n"
@@ -191,14 +197,22 @@ def talent_desc_to_md(talents):
             output += '| Type | Talent 6% | Cooldown | U | Particles | Frames | Motion Value |\n' + \
                       '| :--- | :--- | :--- | :--- | :--- | :--- | :--- |\n'
             for hit in talents[talent]['values']:
-                output += "| " + hit + " | " + talents[talent]['values'][hit][5] + " | -- | -- | -- | --| -- |\n"
+                output += "| " + hit + " | " + talents[talent]['values'][hit][5].strip() + " | -- | -- | -- | --| -- |\n"
+            output += "{% endtab %}\n\n"
+        elif index == 2 and len(talents) > 3:
+            output += "{% tab title=\"" + talents[talent]['name'] + "\" %}\n"
+            output += f'{talents[talent]["desc"]}\n\n'
+            output += '| Effect | Values |\n' + \
+                      '| :--- | :--- |\n'
+            for hit in talents[talent]['values']:
+                output += "| " + hit + " | " + talents[talent]['values'][hit][0].strip() + " |\n"
             output += "{% endtab %}\n\n"
         else:
             output += "{% tab title=\"" + talents[talent]['name'] + "\" %}\n"
             output += f'{talents[talent]["desc"]}\n\n'
             output += '| Effect | Talent 6% / Data |' + '\n| :--- | :--- |\n'
             for hit in talents[talent]['values']:
-                output += "| " + hit + " | " + talents[talent]['values'][hit][5] + " |\n"
+                output += "| " + hit + " | " + talents[talent]['values'][hit][5].strip() + " |\n"
             output += "{% endtab %}\n"
     output += "{% endtabs %}\n\n"
     # print(output)
@@ -213,55 +227,85 @@ def talents_to_md(talents):
             output += "### Normal Attacks\n\n"
             output += "|  | Lv6 | Lv7 | Lv8 | Lv9 | Lv10 | Lv11 |" + "\n| :--- | :--- | :--- | :--- | :--- | :--- | :--- |\n"
             for hit in talents[talent]['values']:
-                if hit.find("Charged Attack") != -1:
+                if hit.find("Charged Attack") != -1 or hit.find("Aimed Shot") != -1:
                     break
                 output += "| " + hit + " |"
                 for val in talents[talent]['values'][hit][5:11]:
-                    output += " " + val[:-1] + " |"
+                    output += " " + val.replace("%", "").strip() + " |"
                 output += "\n"
 
             output += "\n### Charged Attack\n\n"
             output += "|  | Lv6 | Lv7 | Lv8 | Lv9 | Lv10 | Lv11 |" + "\n| :--- | :--- | :--- | :--- | :--- | :--- | :--- |\n"
             for hit in talents[talent]['values']:
-                if hit.find("Charged Attack") == -1:
+                if hit.find("Charged Attack") == -1 and hit.find("Aimed Shot") == -1:
                     continue
                 if hit.find("Stamina Cost") != -1:
+                    output += f"\n**Stamina Cost:** {talents[talent]['values']['Charged Attack Stamina Cost'][0].replace(' /s','')}\n"
                     break
                 output += "| " + hit + " |"
                 for val in talents[talent]['values'][hit][5:11]:
-                    output += " " + val[:-1] + " |"
+                    output += " " + val.replace("%", "").strip() + " |"
                 output += "\n"
-            output += f"\n**Stamina Cost:** {talents[talent]['values']['Charged Attack Stamina Cost'][0]}\n"
 
             output += "\n### Plunge \n\n"
             output += "|  | Lv6 | Lv7 | Lv8 | Lv9 | Lv10 | Lv11 |" + "\n| :--- | :--- | :--- | :--- | :--- | :--- | :--- |\n"
             for hit in talents[talent]['values']:
                 if hit.find("Plunge") == -1:
                     continue
+                if hit.find("Low/High") > -1:
+                    low = []
+                    high = []
+                    for val in talents[talent]['values'][hit][5:11]:
+                        low.append(val.split()[0])
+                        high.append(val.split()[-1])
+                    output += "| Low Plunge DMG |"
+                    for val in low:
+                        output += " " + val.replace("%", "").strip() + " |"
+                    output += "\n| High Plunge DMG |"
+                    for val in high:
+                        output += " " + val.replace("%", "").strip() + " |"
+                    output += "\n"
+                    continue
+
                 output += "| " + hit + " |"
                 for val in talents[talent]['values'][hit][5:11]:
-                    output += " " + val[:-1] + " |"
+                    output += " " + val.replace("%", "").strip() + " |"
                 output += "\n"
             output += "{% endtab %}\n\n"
         if index == 1:
             output += "{% tab title=\"" + talents[talent]['name'] + "\" %}\n"
             output += "|  | Lv6 | Lv7 | Lv8 | Lv9 | Lv10 | Lv11 | Lv12 | Lv13 |" + "\n| :--- | :--- | :--- | :--- | :--- | :--- | :--- | :--- | :--- |\n"
             for hit in talents[talent]['values']:
+                if hit == "Duration":
+                    output += f"\n**Duration:** {talents[talent]['values'][hit][0]}\n"
+                    continue
+                if hit == "CD":
+                    output += f"\n**Cooldown:** {talents[talent]['values'][hit][0]}\n"
+                    continue
                 output += "| " + hit + " |"
                 for val in talents[talent]['values'][hit][5:13]:
-                    output += " " + val + " |"
+                    output += " " + val.strip() + " |"
                 output += "\n"
             output += "{% endtab %}\n\n"
-        if index == 2:
+        if index == len(talents)-1:
             output += "{% tab title=\"" + talents[talent]['name'] + "\" %}\n"
             output += "|  | Lv6 | Lv7 | Lv8 | Lv9 | Lv10 | Lv11 | Lv12 | Lv13 |" + "\n| :--- | :--- | :--- | :--- | :--- | :--- | :--- | :--- | :--- |\n"
             for hit in talents[talent]['values']:
+                if hit == "Duration":
+                    output += f"\n**Duration:** {talents[talent]['values'][hit][0]}\n"
+                    continue
+                if hit == "CD":
+                    output += f"\n**Cooldown:** {talents[talent]['values'][hit][0]}\n"
+                    continue
+                if hit == "Energy Cost":
+                    output += f"\n**Energy Cost:** {talents[talent]['values'][hit][0]}\n"
+                    continue
                 output += "| " + hit + " |"
                 for val in talents[talent]['values'][hit][5:13]:
-                    output += " " + val + " |"
+                    output += " " + val.strip() + " |"
                 output += "\n"
             output += "{% endtab %}\n"
-    output += "{% endtabs %}"
+    output += "{% endtabs %}\n"
     # print(output)
     return output
 
@@ -295,6 +339,13 @@ def cons_to_md(cons):
     # print(output)
     return output
 
+def links_to_md(character):
+    output = '## **External Links**' + '\n\n'
+    output += f"* [**Genshin Impact Fandom**](https://genshin-impact.fandom.com/wiki/{character['name']})\n\n"
+    output += '**Evidence Vault:**' + '\n\n'
+    output += f"{{% page-ref page=\"../../evidence/characters/{character['desc']['Element']}/{character['id']}.md\" %}}\n"
+    return output
+
 def char_to_md(character):
     f = open(f"{character['id']}.md", "w", encoding='utf-8')
     f.write(char_data_to_md(character) + "\n")
@@ -302,7 +353,8 @@ def char_to_md(character):
     f.write(talent_desc_to_md(character['talents']) + "\n")
     f.write(passives_to_md(character['passives']) + "\n")
     f.write(cons_to_md(character["cons"]) + "\n")
-    f.write(talents_to_md(character['talents']))
+    f.write(talents_to_md(character['talents']) + "\n")
+    f.write(links_to_md(character))
     f.close()
 
 def main():
