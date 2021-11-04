@@ -101,7 +101,7 @@ def get_character_desc(soup):
 
         # Get element from PNG link.
         if cols_text[0] == 'Element':
-            element = cols[1].find('img')['src'][len("/img/icons/element/"):]
+            element = cols[1].find('img')['data-src'][len("/img/icons/element/"):]
             element = element[:len('_35.png') * -1]
             data['Element'] = element.capitalize()
 
@@ -110,7 +110,7 @@ def get_character_desc(soup):
     return data
 
 def get_character(id: str):
-    url = f'https://genshin.honeyhunterworld.com/db/char/{id}/'
+    url = f'https://genshin.honeyhunterworld.com/db/char/{id}/?lang=EN'
     page = requests.get(url)
     # soup = BeautifulSoup(page.content, 'html.parser')
     soup = BeautifulSoup(page.content, 'html5lib')
@@ -284,7 +284,7 @@ def talents_to_md(talents):
                     continue
                 output += "| " + hit + " |"
                 for val in talents[talent]['values'][hit][5:13]:
-                    output += " " + val.strip() + " |"
+                    output += " " + val.replace("%", "").strip() + " |"
                 output += "\n"
             output += "{% endtab %}\n\n"
         if index == len(talents)-1:
@@ -302,7 +302,7 @@ def talents_to_md(talents):
                     continue
                 output += "| " + hit + " |"
                 for val in talents[talent]['values'][hit][5:13]:
-                    output += " " + val.strip() + " |"
+                    output += " " + val.replace("%", "").strip() + " |"
                 output += "\n"
             output += "{% endtab %}\n"
     output += "{% endtabs %}\n"
@@ -330,7 +330,7 @@ def cons_to_md(cons):
     output = '## **Constellations**' + '\n\n'
     output += '{% tabs %}'
     keys = list(cons)
-    for i in range(0, 6):
+    for i in range(0,len(keys)):
         output += "\n{% tab title=\"C" + str(i + 1) + "\" %}\n"
         output += f"### {keys[i]}\n\n{cons[keys[i]]}\n"
         output += "{% endtab %}\n"
@@ -343,7 +343,7 @@ def links_to_md(character):
     output = '## **External Links**' + '\n\n'
     output += f"* [**Genshin Impact Fandom**](https://genshin-impact.fandom.com/wiki/{character['name']})\n\n"
     output += '**Evidence Vault:**' + '\n\n'
-    output += f"{{% page-ref page=\"../../evidence/characters/{character['desc']['Element']}/{character['id']}.md\" %}}\n"
+    output += f"{{% page-ref page=\"../../evidence/characters/{character['desc']['Element'].lower()}/{character['id']}.md\" %}}\n"
     return output
 
 def char_to_md(character):
@@ -363,6 +363,9 @@ def main():
     char_to_md(data)
     print(json.dumps(data, indent=4))
     print("File saved to " + data['id'] + ".md\n")
+    f = open(f"{data['id']}.json", "w", encoding='utf-8')
+    f.write(json.dumps(data, indent=4))
+    f.close()
     # base_stats_to_md(data['stats'])
     # talents_to_md(data['talents'])
     # passives_to_md(data['passives'])
